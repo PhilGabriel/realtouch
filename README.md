@@ -12,7 +12,7 @@ micro-interactions of pressing something soft and physical.
 | --- | --- | --- |
 | **Pressure** | `PointerEvent.pressure` / `Touch.force` | The face sinks deeper the harder you press. |
 | **Position** | contact point on the button | The surface tilts *toward* your finger, like a soft pad dipping. |
-| **Contact area** | `Touch.radiusX/Y` (finger width) | A broad, soft finger spreads a wider, gentler highlight and ripple than a sharp tap. |
+| **Contact area** | `PointerEvent.width/height` (finger footprint) | A broad, soft finger spreads a wider, gentler highlight and ripple than a sharp tap. |
 | **Duration** | time held down | The material keeps yielding the longer you hold — a long, deliberate press feels different from a quick tap. |
 | **Release** | pointer up | A soft, springy return with a gentle overshoot — never a hard snap. |
 
@@ -70,8 +70,12 @@ button by overriding two hues:
 Each button dispatches bubbling `CustomEvent`s:
 
 - `realtouch:press` — `{ pressure, x, y, area }`
-- `realtouch:release` — `{ held }` (ms)
+- `realtouch:release` — `{ held }` (ms); `{ held, cancelled: true }` when aborted
 - `realtouch:activate` — a genuine, deliberate press completed — `{ held }`
+- `realtouch:cancel` — the interaction was aborted (OS gesture, scroll); no activation fires — `{ held }`
+
+Synthetic keyboard presses (`Space` / `Enter`) emit the same `press` → `release`
+→ `activate` sequence as pointer interactions.
 
 ## Accessibility
 

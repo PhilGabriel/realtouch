@@ -6,7 +6,7 @@
  *
  *   • pressure  — PointerEvent.pressure / Touch.force → how deep it gives
  *   • position  — where the contact lands → the surface tilts toward it
- *   • area      — Touch.radiusX/Y → a broad, soft finger vs. a sharp tap
+ *   • area      — PointerEvent.width/height → a broad, soft finger vs. a sharp tap
  *   • duration  — how long you hold → the material keeps yielding, then relaxes
  *   • release   — a soft, springy return, never a hard snap
  *
@@ -115,29 +115,34 @@
 
     _bind() {
       const el = this.el;
+      // All handlers are stored on `this` so destroy() can remove every one.
       this._onDown = this._down.bind(this);
       this._onMove = this._move.bind(this);
       this._onUp = this._up.bind(this);
-
-      el.addEventListener('pointerdown', this._onDown);
-      el.addEventListener('pointermove', this._onMove);
-      el.addEventListener('pointerup', this._onUp);
-      el.addEventListener('pointercancel', this._onUp);
-      el.addEventListener('pointerleave', this._onLeave.bind(this));
-
+      this._onCancel = this._cancel.bind(this);
+      this._onLeaveH = this._leave.bind(this);
       // Keyboard accessibility: Space/Enter give a synthetic soft press.
-      el.addEventListener('keydown', (e) => {
+      this._onKeyDown = (e) => {
         if ((e.key === ' ' || e.key === 'Enter') && !this.pressed) {
           e.preventDefault();
           this._syntheticDown();
         }
-      });
-      el.addEventListener('keyup', (e) => {
+      };
+      this._onKeyUp = (e) => {
         if ((e.key === ' ' || e.key === 'Enter') && this.pressed) {
           e.preventDefault();
           this._syntheticUp();
         }
-      });
+      };
+
+      el.addEventListener('pointerdown', this._onDown);
+      el.addEventListener('pointermove', this._onMove);
+      el.addEventListener('pointerup', this._onUp);
+      el.addEventListener('pointercancel', this._onCancel);
+      el.addEventListener('pointerleave', this._onLeaveH);
+      el.addEventListener('keydown', this._onKeyDown);
+      el.addEventListener('keyup', this._onKeyUp);
+
       if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
       if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
     }
@@ -145,13 +150,17 @@
     /* Convert a pointer event into normalized contact geometry. */
     _geometry(e) {
       const r = this.el.getBoundingClientRect();
-      const x = clamp((e.clientX - r.left) / r.width, 0, 1);
-      const y = clamp((e.clientY - r.top) / r.height, 0, 1);
-      // Contact area: a fat, soft finger produces a wider radius than a stylus
+      // Guard against a not-yet-laid-out / hidden element (0 size) so we never
+      // divide by zero and leak NaN into the CSS custom properties.
+      const w = r.width || 1;
+      const h = r.height || 1;
+      const x = clamp((e.clientX - r.left) / w, 0, 1);
+      const y = clamp((e.clientY - r.top) / h, 0, 1);
+      // Contact area: a fat, soft finger produces a wider contact than a stylus
       // or a mouse. Normalize against button size to a 0..1 "softness".
       let area = 0.5;
       if (e.width && e.height) {
-        area = clamp((e.width + e.height) / (r.width + r.height), 0, 1);
+        area = clamp((e.width + e.height) / (w + h), 0, 1);
       }
       return { x, y, area, rect: r };
     }
@@ -169,7 +178,12 @@
     }
 
     _down(e) {
-      this.el.setPointerCapture && this.el.setPointerCapture(e.pointerId);
+      // Capture so we keep tracking the finger even if it slides off the edge.
+      try {
+        this.el.setPointerCapture && this.el.setPointerCapture(e.pointerId);
+      } catch (_) {
+        /* no active pointer (e.g. synthetic events) — safe to ignore */
+      }
       this.pressed = true;
       this.pressStart = performance.now();
       this.lastHapticStep = 0;
@@ -218,7 +232,23 @@
       this._emit('realtouch:activate', { held });
     }
 
-    _onLeave() {
+    /* An aborted interaction (OS gesture, scroll, focus loss): release the
+     * visuals softly but never fire a click-like activation. */
+    _cancel() {
+      if (!this.pressed) return;
+      const held = performance.now() - this.pressStart;
+      this.pressed = false;
+      this.pressure = 0;
+      this.v.depth = -Math.max(this.s.depth, 6) * 3.2;
+      this._relax();
+      this._haptic('up');
+      this.el.classList.remove('is-pressed');
+      this._emit('realtouch:release', { held, cancelled: true });
+      this._emit('realtouch:cancel', { held });
+      this._start();
+    }
+
+    _leave() {
       if (!this.pressed) {
         this.t.glow = 0;
         this.t.tiltX = 0;
@@ -235,6 +265,8 @@
       this._haptic('down');
       if (this.opts.sound) softClick('press');
       this.el.classList.add('is-pressed');
+      // Emit the same events as a pointer press, for a consistent API.
+      this._emit('realtouch:press', { pressure: this.pressure, x: 0.5, y: 0.5, area: 0.5 });
       this._start();
     }
 
@@ -247,6 +279,8 @@
       this._haptic('up');
       if (this.opts.sound) softClick('release');
       this.el.classList.remove('is-pressed');
+      // Mirror the pointer release: release first, then activate.
+      this._emit('realtouch:release', { held });
       this._emit('realtouch:activate', { held });
     }
 
@@ -383,11 +417,20 @@
       el.removeEventListener('pointerdown', this._onDown);
       el.removeEventListener('pointermove', this._onMove);
       el.removeEventListener('pointerup', this._onUp);
-      el.removeEventListener('pointercancel', this._onUp);
+      el.removeEventListener('pointercancel', this._onCancel);
+      el.removeEventListener('pointerleave', this._onLeaveH);
+      el.removeEventListener('keydown', this._onKeyDown);
+      el.removeEventListener('keyup', this._onKeyUp);
     }
   }
 
   function enhance(target, options) {
+    if (target == null) {
+      throw new TypeError(
+        'RealTouch.enhance(target): target is required — pass a selector string, ' +
+          'an Element, or an iterable of Elements.'
+      );
+    }
     const els =
       typeof target === 'string'
         ? document.querySelectorAll(target)

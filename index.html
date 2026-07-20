@@ -320,7 +320,6 @@
         const hly = parseFloat(cs.getPropertyValue('--rt-hly')) || 50;
         el.padDot.style.left = hlx + '%';
         el.padDot.style.top = hly + '%';
-        const zone = (v) => (v < 33 ? 'low' : v < 66 ? 'mid' : 'high');
         el.pos.textContent =
           (hlx < 40 ? 'left' : hlx > 60 ? 'right' : 'center') +
           ' · ' +
