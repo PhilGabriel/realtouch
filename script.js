@@ -1,6 +1,8 @@
 const button = document.querySelector(".touch-button");
 
 if (button) {
+  const DURATION_PRESSURE_MAX_MS = 550;
+  const RELEASE_PRESSURE_FACTOR = 0.32;
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const label = button.querySelector(".touch-button__label");
   const hint = button.querySelector(".touch-button__hint");
@@ -24,7 +26,7 @@ if (button) {
     button.style.setProperty("--tilt-x", `${((0.5 - y) * 8).toFixed(2)}deg`);
   };
 
-  const getDurationPressure = () => clamp((performance.now() - pressStartedAt) / 550, 0.15, 1);
+  const getDurationPressure = () => clamp((performance.now() - pressStartedAt) / DURATION_PRESSURE_MAX_MS, 0.15, 1);
 
   const getPressure = (event) => {
     if (pointerType !== "mouse" && typeof event?.pressure === "number" && event.pressure > 0) {
@@ -113,13 +115,13 @@ if (button) {
     }
 
     stopTick();
-    pressure = clamp(pressure * 0.32, 0, 0.32);
+    pressure = clamp(pressure * RELEASE_PRESSURE_FACTOR, 0, RELEASE_PRESSURE_FACTOR);
     button.classList.remove("is-pressed");
     render();
     activePointerId = null;
     hasHardwarePressure = false;
 
-    window.setTimeout(() => {
+    setTimeout(() => {
       pressure = 0;
       button.style.setProperty("--pointer-x", "50%");
       button.style.setProperty("--pointer-y", "50%");
