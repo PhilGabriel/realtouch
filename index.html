@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#0d0b1a" />
+    <title>RealTouch — a button that feels alive</title>
+    <meta
+      name="description"
+      content="A real touch button that reads finger pressure, position, contact area and click duration to feel like pressing something soft and real."
+    />
+    <link rel="stylesheet" href="css/realtouch.css" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d0b1a;
+        --bg-2: #14112b;
+        --ink: #eae7ff;
+        --ink-dim: #a49fce;
+        --line: hsla(255, 40%, 60%, 0.16);
+        --card: hsla(255, 45%, 60%, 0.06);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, Helvetica, Arial, sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(60vw 60vw at 15% -10%, hsla(262, 80%, 40%, 0.35), transparent 60%),
+          radial-gradient(50vw 50vw at 110% 10%, hsla(200, 80%, 45%, 0.25), transparent 55%),
+          linear-gradient(180deg, var(--bg), var(--bg-2));
+        background-attachment: fixed;
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.5;
+        overflow-x: hidden;
+      }
+
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: clamp(28px, 6vw, 72px) clamp(20px, 5vw, 40px) 80px;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: clamp(36px, 7vw, 64px);
+      }
+
+      .eyebrow {
+        display: inline-block;
+        font-size: 0.72rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        padding: 6px 14px;
+        border: 1px solid var(--line);
+        border-radius: 100px;
+        margin-bottom: 22px;
+      }
+
+      h1 {
+        font-size: clamp(2.2rem, 7vw, 4rem);
+        line-height: 1.02;
+        margin: 0 0 0.4em;
+        letter-spacing: -0.03em;
+        background: linear-gradient(180deg, #fff, #c9c2ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .lede {
+        font-size: clamp(1rem, 2.6vw, 1.2rem);
+        color: var(--ink-dim);
+        max-width: 44ch;
+        margin: 0 auto;
+      }
+
+      .stage {
+        display: grid;
+        place-items: center;
+        gap: 20px;
+        padding: clamp(40px, 9vw, 80px) 20px;
+        margin-bottom: 40px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: var(--card);
+        backdrop-filter: blur(6px);
+      }
+
+      .hero-btn {
+        font-size: clamp(1.05rem, 3.4vw, 1.35rem);
+      }
+
+      .hint {
+        font-size: 0.85rem;
+        color: var(--ink-dim);
+        text-align: center;
+        max-width: 34ch;
+      }
+
+      /* Live telemetry — makes the invisible signals visible. */
+      .telemetry {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-bottom: 56px;
+      }
+
+      @media (max-width: 620px) {
+        .telemetry {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      .metric {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 16px;
+        background: var(--card);
+      }
+
+      .metric h3 {
+        margin: 0 0 10px;
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        font-weight: 600;
+      }
+
+      .metric .val {
+        font-variant-numeric: tabular-nums;
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      .bar {
+        height: 6px;
+        border-radius: 6px;
+        margin-top: 10px;
+        background: hsla(255, 40%, 60%, 0.18);
+        overflow: hidden;
+      }
+
+      .bar > i {
+        display: block;
+        height: 100%;
+        width: 0%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, hsl(262 85% 66%), hsl(200 85% 60%));
+        transition: width 0.06s linear;
+      }
+
+      .pad {
+        position: relative;
+        aspect-ratio: 1;
+        width: 100%;
+        border-radius: 12px;
+        margin-top: 6px;
+        background: hsla(255, 40%, 60%, 0.1);
+        overflow: hidden;
+      }
+
+      .pad > i {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        margin: -8px 0 0 -8px;
+        border-radius: 50%;
+        background: hsl(200 90% 65%);
+        box-shadow: 0 0 14px hsl(200 90% 65%);
+        left: 50%;
+        top: 50%;
+        transition: left 0.05s linear, top 0.05s linear;
+      }
+
+      section.variants h2 {
+        font-size: 1.4rem;
+        letter-spacing: -0.02em;
+        margin: 0 0 6px;
+      }
+
+      section.variants p {
+        color: var(--ink-dim);
+        margin: 0 0 28px;
+      }
+
+      .variant-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 22px;
+        align-items: center;
+      }
+
+      /* A couple of alternate skins to show the engine is theme-agnostic. */
+      .rt--mint {
+        --rt-hue-1: 160;
+        --rt-hue-2: 190;
+      }
+      .rt--sunset {
+        --rt-hue-1: 18;
+        --rt-hue-2: 340;
+      }
+      .rt--pill {
+        --rt-radius: 100px;
+        --rt-hue-1: 280;
+        --rt-hue-2: 250;
+      }
+
+      footer {
+        margin-top: 72px;
+        text-align: center;
+        color: var(--ink-dim);
+        font-size: 0.85rem;
+      }
+      footer code {
+        color: var(--ink);
+        background: hsla(255, 40%, 60%, 0.14);
+        padding: 2px 7px;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <span class="eyebrow">Micro-interactions · Tactile UI</span>
+        <h1>A button that feels<br />like a real touch.</h1>
+        <p class="lede">
+          It reads your finger's pressure, where it lands, how broad the contact
+          is, and how long you hold — then gives, tilts and springs back like
+          something soft and real.
+        </p>
+      </header>
+
+      <div class="stage">
+        <button class="realtouch hero-btn" data-realtouch>Press &amp; hold me</button>
+        <p class="hint">
+          On a phone: press harder, or hold longer, and feel it give.
+          On a desktop: press and hold — the surface tilts toward your cursor.
+        </p>
+      </div>
+
+      <div class="telemetry" aria-hidden="true">
+        <div class="metric">
+          <h3>Pressure</h3>
+          <div class="val" id="m-pressure">0%</div>
+          <div class="bar"><i id="b-pressure"></i></div>
+        </div>
+        <div class="metric">
+          <h3>Hold time</h3>
+          <div class="val" id="m-hold">0ms</div>
+          <div class="bar"><i id="b-hold"></i></div>
+        </div>
+        <div class="metric">
+          <h3>Contact area</h3>
+          <div class="val" id="m-area">—</div>
+          <div class="bar"><i id="b-area"></i></div>
+        </div>
+        <div class="metric">
+          <h3>Position</h3>
+          <div class="val" id="m-pos" style="font-size: 1rem">center</div>
+          <div class="pad"><i id="pad-dot"></i></div>
+        </div>
+      </div>
+
+      <section class="variants">
+        <h2>One engine, any skin</h2>
+        <p>The same physics drives every button. Only the colors change.</p>
+        <div class="variant-grid">
+          <button class="realtouch" data-realtouch>Continue</button>
+          <button class="realtouch rt--mint" data-realtouch>Add to cart</button>
+          <button class="realtouch rt--sunset" data-realtouch>Get started</button>
+          <button class="realtouch rt--pill" data-realtouch>Subscribe ✦</button>
+        </div>
+      </section>
+
+      <footer>
+        Enhance any element with
+        <code>RealTouch.enhance('[data-realtouch]')</code>.
+        <br />Works with touch, pen and mouse · keyboard-accessible · honors
+        reduced-motion.
+      </footer>
+    </div>
+
+    <script src="js/realtouch.js"></script>
+    <script>
+      const buttons = RealTouch.enhance('[data-realtouch]');
+      const hero = document.querySelector('.hero-btn');
+
+      // Wire the hero button up to the live telemetry panel.
+      const el = {
+        pressure: document.getElementById('m-pressure'),
+        bPressure: document.getElementById('b-pressure'),
+        hold: document.getElementById('m-hold'),
+        bHold: document.getElementById('b-hold'),
+        area: document.getElementById('m-area'),
+        bArea: document.getElementById('b-area'),
+        pos: document.getElementById('m-pos'),
+        padDot: document.getElementById('pad-dot'),
+      };
+
+      let holding = false;
+      let holdStart = 0;
+
+      function readVars() {
+        const cs = getComputedStyle(hero);
+        const hlx = parseFloat(cs.getPropertyValue('--rt-hlx')) || 50;
+        const hly = parseFloat(cs.getPropertyValue('--rt-hly')) || 50;
+        el.padDot.style.left = hlx + '%';
+        el.padDot.style.top = hly + '%';
+        el.pos.textContent =
+          (hlx < 40 ? 'left' : hlx > 60 ? 'right' : 'center') +
+          ' · ' +
+          (hly < 40 ? 'top' : hly > 60 ? 'bottom' : 'middle');
+        if (holding) {
+          const held = performance.now() - holdStart;
+          el.hold.textContent = Math.round(held) + 'ms';
+          el.bHold.style.width = Math.min(100, (held / 900) * 100) + '%';
+        }
+        requestAnimationFrame(readVars);
+      }
+      requestAnimationFrame(readVars);
+
+      hero.addEventListener('realtouch:press', (e) => {
+        holding = true;
+        holdStart = performance.now();
+        const p = Math.round(e.detail.pressure * 100);
+        el.pressure.textContent = p + '%';
+        el.bPressure.style.width = p + '%';
+        const a = Math.round(e.detail.area * 100);
+        el.area.textContent = a > 0 ? a + '%' : '—';
+        el.bArea.style.width = a + '%';
+      });
+
+      hero.addEventListener('pointermove', (ev) => {
+        // Reflect live pressure while held.
+        if (holding && typeof ev.pressure === 'number') {
+          const p = Math.round(ev.pressure * 100);
+          if (p > 0) {
+            el.pressure.textContent = p + '%';
+            el.bPressure.style.width = p + '%';
+          }
+        }
+      });
+
+      hero.addEventListener('realtouch:release', () => {
+        holding = false;
+        el.pressure.textContent = '0%';
+        el.bPressure.style.width = '0%';
+      });
+    </script>
+  </body>
+</html>
