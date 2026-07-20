@@ -4,7 +4,7 @@ A soft, tactile button demo for the web that reacts to pointer position, touch p
 
 ## Run locally
 
-Open `/home/runner/work/realtouch/realtouch/index.html` in a browser, or serve the repository root with a simple static server such as:
+Open `./index.html` in a browser, or serve the repository root with a simple static server such as:
 
 ```bash
 python3 -m http.server 8000

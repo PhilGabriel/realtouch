@@ -74,7 +74,11 @@ if (button) {
     hasHardwarePressure = pointerType !== "mouse" && typeof event.pressure === "number" && event.pressure > 0;
     pressStartedAt = performance.now();
     button.classList.add("is-pressed");
-    button.setPointerCapture?.(event.pointerId);
+
+    if (typeof button.setPointerCapture === "function") {
+      button.setPointerCapture(event.pointerId);
+    }
+
     setPointerPosition(event);
     pressure = getPressure(event);
     render();
@@ -130,6 +134,9 @@ if (button) {
   button.addEventListener("pointerdown", startPress);
   button.addEventListener("pointerup", endPress);
   button.addEventListener("pointercancel", endPress);
+  window.addEventListener("pointermove", updatePress);
+  window.addEventListener("pointerup", endPress);
+  window.addEventListener("pointercancel", endPress);
   button.addEventListener("pointerleave", (event) => {
     if (!button.classList.contains("is-pressed")) {
       button.style.setProperty("--pointer-x", "50%");
