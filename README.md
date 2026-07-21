@@ -16,10 +16,11 @@ micro-interactions of pressing something soft and physical.
 | **Duration** | time held down | The material keeps yielding the longer you hold — a long, deliberate press feels different from a quick tap. |
 | **Release** | pointer up | A soft, springy return with a gentle overshoot — never a hard snap. |
 
-On top of the visuals it adds gentle **haptics** (`navigator.vibrate`) and a
-warm, low **contact sound** — both soft, never buzzy — and every motion is
-driven by a spring integrator on a single `requestAnimationFrame` loop so it
-always feels alive.
+On top of the visuals it adds gentle **haptics** (`navigator.vibrate`) and an
+optional warm, low **contact sound** — both soft, never buzzy — and every
+motion is driven by a spring integrator on a single `requestAnimationFrame`
+loop so it always feels alive. Sound is **off by default**; opt in with
+`sound: true` (or `data-rt-sound`).
 
 ## Try it
 
@@ -48,9 +49,22 @@ RealTouch.enhance('[data-realtouch]', {
   holdGive: 0.55, // extra sink accumulated by simply holding
   holdTime: 900,  // ms to reach full hold-give
   haptics: true,  // gentle vibration on supported devices
-  sound: true,    // soft contact sound
+  sound: false,   // soft contact sound — off by default
 });
 ```
+
+Options can also be set per element via `data-rt-*` attributes (no JS needed):
+
+```html
+<button class="realtouch" data-realtouch data-rt-sound data-rt-max-depth="20">
+  Press &amp; hold me
+</button>
+<!-- data-auto enhances every [data-realtouch] on load -->
+<script src="js/realtouch.js" data-auto></script>
+```
+
+`RealTouch.auto(root?)` enhances all `[data-realtouch]` under `root`, and both
+`enhance()` and `auto()` are idempotent (one instance per element).
 
 ### Theming
 
@@ -84,12 +98,19 @@ Synthetic keyboard presses (`Space` / `Enter`) emit the same `press` → `releas
 - A visible focus ring via `:focus-visible`.
 - Honors `prefers-reduced-motion`, falling back to calm, instant feedback.
 
+## Framework integrations
+
+Ready-made adapters for Astro, Tailwind, Bootstrap, a universal Web Component,
+and React live in [`integrations/`](integrations/README.md). They all reuse the
+same engine and honour the sound-off default.
+
 ## Files
 
 ```
-index.html          demo + live telemetry
-css/realtouch.css   the tactile look
-js/realtouch.js     the touch-physics engine (no dependencies)
+index.html                     demo + live telemetry
+css/realtouch.css              the tactile look
+js/realtouch.js                the touch-physics engine (no dependencies)
+integrations/                  Astro · Tailwind · Bootstrap · Web Component · React
 ```
 
 No build step, no dependencies.

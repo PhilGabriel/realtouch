@@ -109,6 +109,24 @@
         max-width: 34ch;
       }
 
+      .sound-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: var(--ink-dim);
+        cursor: pointer;
+        user-select: none;
+      }
+      .sound-toggle input {
+        accent-color: hsl(262 85% 66%);
+        width: 16px;
+        height: 16px;
+      }
+      .sound-toggle .muted {
+        opacity: 0.7;
+      }
+
       /* Live telemetry — makes the invisible signals visible. */
       .telemetry {
         display: grid;
@@ -250,6 +268,10 @@
           On a phone: press harder, or hold longer, and feel it give.
           On a desktop: press and hold — the surface tilts toward your cursor.
         </p>
+        <label class="sound-toggle">
+          <input type="checkbox" id="sound-toggle" />
+          Contact sound <span class="muted">(off by default)</span>
+        </label>
       </div>
 
       <div class="telemetry" aria-hidden="true">
@@ -298,6 +320,12 @@
     <script>
       const buttons = RealTouch.enhance('[data-realtouch]');
       const hero = document.querySelector('.hero-btn');
+
+      // Sound ships off by default — let visitors switch it on to hear it.
+      const soundToggle = document.getElementById('sound-toggle');
+      soundToggle.addEventListener('change', () => {
+        buttons.forEach((b) => (b.opts.sound = soundToggle.checked));
+      });
 
       // Wire the hero button up to the live telemetry panel.
       const el = {

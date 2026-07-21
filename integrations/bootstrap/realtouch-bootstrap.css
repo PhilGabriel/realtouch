@@ -1,0 +1,59 @@
+/*
+ * RealTouch × Bootstrap adapter.
+ *
+ * Lets you keep writing Bootstrap button markup and get the RealTouch feel:
+ *
+ *   <link rel="stylesheet" href="bootstrap.css" />
+ *   <link rel="stylesheet" href="../../css/realtouch.css" />
+ *   <link rel="stylesheet" href="realtouch-bootstrap.css" />
+ *
+ *   <button class="btn btn-primary realtouch" data-realtouch>Save</button>
+ *   <button class="btn btn-success realtouch" data-realtouch>Confirm</button>
+ *
+ *   <script src="../../js/realtouch.js" data-auto></script>
+ *
+ * `data-auto` on the script enhances every [data-realtouch] automatically.
+ *
+ * The engine paints its own fill/shadow from the two `--rt-hue-*` variables,
+ * so we neutralise Bootstrap's border/background on `.btn.realtouch` and map
+ * each contextual variant to a matching hue pair.
+ */
+
+.btn.realtouch {
+  /* Let RealTouch own the surface; drop Bootstrap's flat fill + border. */
+  border: 0;
+  background-color: transparent;
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-bg: transparent;
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-bg: transparent;
+  --bs-btn-active-border-color: transparent;
+  --bs-btn-box-shadow: none;
+  color: #fff;
+}
+
+/* Map Bootstrap contextual variants → RealTouch hues.               */
+/* (highlight-side hue, shadow-side hue)                             */
+.btn.realtouch.btn-primary   { --rt-hue-1: 214; --rt-hue-2: 232; }
+.btn.realtouch.btn-secondary { --rt-hue-1: 210; --rt-hue-2: 215; }
+.btn.realtouch.btn-success   { --rt-hue-1: 140; --rt-hue-2: 160; }
+.btn.realtouch.btn-danger    { --rt-hue-1: 356; --rt-hue-2: 12; }
+.btn.realtouch.btn-warning   { --rt-hue-1: 42; --rt-hue-2: 30; }
+.btn.realtouch.btn-info      { --rt-hue-1: 190; --rt-hue-2: 200; }
+.btn.realtouch.btn-dark      { --rt-hue-1: 222; --rt-hue-2: 228; }
+
+/* Light needs dark ink to stay legible on the pale surface. */
+.btn.realtouch.btn-light {
+  --rt-hue-1: 220;
+  --rt-hue-2: 220;
+  color: #1b1b26;
+}
+.btn.realtouch.btn-light .realtouch__label {
+  text-shadow: none;
+}
+
+/* Bootstrap's pill helper simply feeds RealTouch's radius. */
+.btn.realtouch.rounded-pill {
+  --rt-radius: 100px;
+}

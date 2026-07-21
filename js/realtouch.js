@@ -57,20 +57,21 @@
     }
   }
 
+  const DEFAULTS = {
+    maxDepth: 14, // px the surface can sink under full pressure
+    maxTilt: 9, // deg the surface tilts toward the contact point
+    holdGive: 0.55, // extra sink accumulated by simply holding
+    holdTime: 900, // ms to reach full hold-give
+    haptics: true, // gentle vibration on supported devices
+    sound: false, // soft contact sound — off by default, opt in explicitly
+  };
+
   class RealTouchButton {
     constructor(el, options = {}) {
       this.el = el;
-      this.opts = Object.assign(
-        {
-          maxDepth: 14, // px the surface can sink under full pressure
-          maxTilt: 9, // deg the surface tilts toward the contact point
-          holdGive: 0.55, // extra sink accumulated by simply holding
-          holdTime: 900, // ms to reach full hold-give
-          haptics: true,
-          sound: true,
-        },
-        options
-      );
+      this.opts = Object.assign({}, DEFAULTS, options);
+      // Make (re-)enhancement idempotent: one instance per element.
+      el.__realtouch = this;
 
       // Animated state (what the eye sees) + velocities for the springs.
       this.s = { depth: 0, tiltX: 0, tiltY: 0, glow: 0, hlx: 50, hly: 50, area: 0.5 };
@@ -421,7 +422,25 @@
       el.removeEventListener('pointerleave', this._onLeaveH);
       el.removeEventListener('keydown', this._onKeyDown);
       el.removeEventListener('keyup', this._onKeyUp);
+      if (el.__realtouch === this) delete el.__realtouch;
     }
+  }
+
+  const BOOL = (v) => v === '' || v === 'true' || v === '1';
+
+  /* Read per-element options from data-rt-* attributes so frameworks and
+   * plain markup can configure a button without writing any JavaScript:
+   *   <button data-realtouch data-rt-sound data-rt-max-depth="20"> */
+  function optionsFromDataset(el) {
+    const d = el.dataset || {};
+    const o = {};
+    if ('rtSound' in d) o.sound = BOOL(d.rtSound);
+    if ('rtHaptics' in d) o.haptics = BOOL(d.rtHaptics);
+    if ('rtMaxDepth' in d) o.maxDepth = parseFloat(d.rtMaxDepth);
+    if ('rtMaxTilt' in d) o.maxTilt = parseFloat(d.rtMaxTilt);
+    if ('rtHoldGive' in d) o.holdGive = parseFloat(d.rtHoldGive);
+    if ('rtHoldTime' in d) o.holdTime = parseFloat(d.rtHoldTime);
+    return o;
   }
 
   function enhance(target, options) {
@@ -437,10 +456,33 @@
         : target instanceof Element
         ? [target]
         : target;
-    return Array.from(els).map((el) => new RealTouchButton(el, options));
+    return Array.from(els).map((el) => {
+      // Already enhanced? Return the existing instance instead of doubling up.
+      if (el.__realtouch) return el.__realtouch;
+      // Per-element data-* options are the base; an explicit options object wins.
+      return new RealTouchButton(el, Object.assign(optionsFromDataset(el), options));
+    });
   }
 
-  const RealTouch = { Button: RealTouchButton, enhance };
+  /* Enhance every [data-realtouch] under `root` that isn't enhanced yet.
+   * Framework adapters and the opt-in auto-init below both use this. */
+  function auto(root) {
+    return enhance((root || document).querySelectorAll('[data-realtouch]'));
+  }
+
+  const RealTouch = { Button: RealTouchButton, enhance, auto, defaults: DEFAULTS };
+
+  // Opt-in zero-JS init: <script src="realtouch.js" data-auto></script>
+  if (typeof document !== 'undefined') {
+    const self = document.currentScript;
+    if (self && self.hasAttribute('data-auto')) {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => auto());
+      } else {
+        auto();
+      }
+    }
+  }
 
   if (typeof module !== 'undefined' && module.exports) module.exports = RealTouch;
   global.RealTouch = RealTouch;
