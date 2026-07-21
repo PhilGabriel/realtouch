@@ -58,13 +58,49 @@
   }
 
   const DEFAULTS = {
-    maxDepth: 14, // px the surface can sink under full pressure
+    maxDepth: 14, // px of key travel at a firm press
     maxTilt: 9, // deg the surface tilts toward the contact point
-    holdGive: 0.55, // extra sink accumulated by simply holding
+    holdGive: 0.55, // extra drive accumulated by simply holding (creep)
     holdTime: 900, // ms to reach full hold-give
+    give: 1, // strength of the tactile "give" (0 = linear, 1 = full rubber dome)
     haptics: true, // gentle vibration on supported devices
     sound: false, // soft contact sound — off by default, opt in explicitly
   };
+
+  /*
+   * The feel: a rubber-dome key from an old phone crossed with a soft tactile
+   * mechanical switch (minus the click). It comes from the FORCE–TRAVEL curve,
+   * not from keyframes. As you press, resistance builds, then *gives way* at the
+   * actuation point (the dome collapses / the switch actuates), then settles
+   * softly into a cushioned bottom-out. We model the key as a mass on a
+   * non-linear spring and integrate it every frame:
+   *
+   *   restoring(y) = K1·y            gentle return spring
+   *                + KBOTTOM·y^8     progressive cushion near the bottom
+   *                − bump(y)         a localized dip = the tactile "give"
+   *
+   * The dip lowers the resisting force around the actuation point, so under a
+   * steady press the key accelerates through it — that's the analog snap you
+   * feel. The curve stays positive everywhere (monostable), so the key always
+   * springs fully back on release.
+   */
+  const DOME = {
+    K1: 72,
+    KB: 22, // bump amplitude — scaled by opts.give
+    YC: 0.4, // actuation point (normalized travel)
+    W: 0.11, // bump width
+    KBOTTOM: 340,
+    POW: 8,
+    MASS: 0.05,
+    DAMP: 56, // slightly under-damped → a small, lively settle
+    PUSH: 110, // press-force gain
+  };
+
+  function domeRestoring(y, give) {
+    const bump = DOME.KB * give * Math.exp(-((y - DOME.YC) * (y - DOME.YC)) / (2 * DOME.W * DOME.W));
+    const bottom = DOME.KBOTTOM * Math.pow(clamp(y, 0, 1), DOME.POW);
+    return DOME.K1 * y + bottom - bump;
+  }
 
   class RealTouchButton {
     constructor(el, options = {}) {
@@ -79,6 +115,11 @@
 
       // Live targets, updated from raw pointer signals.
       this.t = { depth: 0, tiltX: 0, tiltY: 0, glow: 0, hlx: 50, hly: 50, area: 0.5 };
+
+      // Physical key travel (the rubber-dome model): normalized position + vel.
+      this.y = 0;
+      this.vy = 0;
+      this._actuated = false;
 
       this.pressed = false;
       this.pressStart = 0;
@@ -188,6 +229,7 @@
       this.pressed = true;
       this.pressStart = performance.now();
       this.lastHapticStep = 0;
+      this._actuated = false;
       const g = this._geometry(e);
       this.pressure = this._readPressure(e);
       this._applyTargets(g);
@@ -222,8 +264,7 @@
       const held = performance.now() - this.pressStart;
       this.pressed = false;
       this.pressure = 0;
-      // Give the release a small overshoot so it springs back softly.
-      this.v.depth = -Math.max(this.s.depth, 6) * 3.2;
+      // Drive drops to 0 → the dome springs the key back on its own curve.
       this._relax();
       this._haptic('up');
       if (this.opts.sound) softClick('release');
@@ -240,7 +281,6 @@
       const held = performance.now() - this.pressStart;
       this.pressed = false;
       this.pressure = 0;
-      this.v.depth = -Math.max(this.s.depth, 6) * 3.2;
       this._relax();
       this._haptic('up');
       this.el.classList.remove('is-pressed');
@@ -261,6 +301,7 @@
       this.pressed = true;
       this.pressStart = performance.now();
       this.pressure = 0.6;
+      this._actuated = false;
       this._applyTargets({ x: 0.5, y: 0.5, area: 0.5 });
       this._spawnRipple(0.5, 0.5, 0.6, 0.5);
       this._haptic('down');
@@ -275,7 +316,6 @@
       const held = performance.now() - this.pressStart;
       this.pressed = false;
       this.pressure = 0;
-      this.v.depth = -Math.max(this.s.depth, 6) * 3.2;
       this._relax();
       this._haptic('up');
       if (this.opts.sound) softClick('release');
@@ -285,21 +325,22 @@
       this._emit('realtouch:activate', { held });
     }
 
-    /* Map current pressure + geometry into visual targets. */
+    /* Map current pressure + geometry into visual targets. Key travel itself
+     * is handled by the physical dome model in _step; here we only aim the
+     * tilt and the (matte, understated) highlight at the contact point. */
     _applyTargets(g) {
       const o = this.opts;
-      this.t.depth = this.pressure * o.maxDepth;
       // Tilt the face toward the contact point, as a soft pad would dip.
       this.t.tiltX = (0.5 - g.y) * o.maxTilt;
       this.t.tiltY = (g.x - 0.5) * o.maxTilt;
       this.t.hlx = g.x * 100;
       this.t.hly = g.y * 100;
-      this.t.glow = 0.35 + this.pressure * 0.5;
+      // Rubber is matte, not glossy — keep the specular restrained.
+      this.t.glow = 0.24 + this.pressure * 0.32;
       this.t.area = g.area;
     }
 
     _relax() {
-      this.t.depth = 0;
       this.t.tiltX = 0;
       this.t.tiltY = 0;
       this.t.glow = 0;
@@ -320,9 +361,11 @@
     _haptic(kind) {
       if (!this.opts.haptics || !SUPPORTS_VIBRATE) return;
       // Gentle, short pulses — a soft tick, never a buzz.
-      if (kind === 'down') navigator.vibrate(clamp(6 + this.pressure * 14, 4, 24));
-      else if (kind === 'up') navigator.vibrate(4);
-      else if (kind === 'step') navigator.vibrate(3);
+      if (kind === 'down') navigator.vibrate(clamp(4 + this.pressure * 8, 3, 14));
+      // The actuation "give" — the crisp little moment the key engages.
+      else if (kind === 'actuate') navigator.vibrate(clamp(4 + this.pressure * 8, 3, 12));
+      else if (kind === 'up') navigator.vibrate(3);
+      else if (kind === 'step') navigator.vibrate(2);
     }
 
     /* While holding harder, emit faint stepped ticks as the material yields. */
@@ -358,33 +401,59 @@
     }
 
     _isMoving() {
-      const s = this.s, t = this.t, v = this.v;
+      const s = this.s, t = this.t;
       const near = (a, b, e) => Math.abs(a - b) < e;
+      // The key is at rest, and tilt/glow have settled to their targets.
+      const keyStill = this.y < 0.002 && Math.abs(this.vy) < 0.02;
       const still =
-        near(s.depth, t.depth, 0.05) &&
+        keyStill &&
         near(s.tiltX, t.tiltX, 0.05) &&
         near(s.tiltY, t.tiltY, 0.05) &&
-        near(s.glow, t.glow, 0.01) &&
-        Math.abs(v.depth) < 0.05;
+        near(s.glow, t.glow, 0.01);
       return !still;
     }
 
     _step(dt) {
-      const s = this.s, v = this.v;
-      let target = this.t.depth;
+      const s = this.s, v = this.v, o = this.opts;
 
-      // Duration effect: the longer you hold, the more the soft material
-      // keeps giving, easing toward an extra sink. This is what makes a long,
-      // deliberate press feel different from a quick tap.
+      // ---- Rubber-dome key travel: the tactile "give" ---------------------
+      // Drive = how hard the key is pushed right now. Pressure sets the
+      // baseline; holding adds a slow creep so a long press keeps yielding.
+      let drive = 0;
       if (this.pressed) {
         const held = performance.now() - this.pressStart;
-        const holdT = clamp(held / this.opts.holdTime, 0, 1);
+        const holdT = clamp(held / o.holdTime, 0, 1);
         const eased = 1 - Math.pow(1 - holdT, 3);
-        target += eased * this.opts.holdGive * this.opts.maxDepth;
+        drive = this.pressure + eased * o.holdGive;
       }
+      // Guard against a non-finite give (e.g. NaN slipped in via options) so a
+      // bad value can never propagate into the integrator and break rendering.
+      const give = clamp(Number.isFinite(o.give) ? o.give : DEFAULTS.give, 0, 1);
+      const Fpush = DOME.PUSH * drive;
+      // Integrate the mass-on-nonlinear-spring in fixed ~1ms substeps, so the
+      // stiff bottom-out stays stable no matter the frame rate.
+      const nsub = Math.max(1, Math.ceil(dt / 0.001));
+      const h = dt / nsub;
+      for (let i = 0; i < nsub; i++) {
+        const a = (Fpush - domeRestoring(this.y, give)) / DOME.MASS - DOME.DAMP * this.vy;
+        this.vy += a * h;
+        this.y += this.vy * h;
+        if (this.y < 0) {
+          this.y = 0;
+          if (this.vy < 0) this.vy = 0;
+        }
+      }
+      // The moment travel crosses the actuation point on the way down: fire a
+      // soft tick + event, once per press — the analog "it engaged" feeling.
+      if (this.pressed && !this._actuated && this.y >= DOME.YC && this.vy > 0) {
+        this._actuated = true;
+        this._haptic('actuate');
+        this._emit('realtouch:actuate', { pressure: this.pressure });
+      }
+      if (!this.pressed && this.y < DOME.YC * 0.6) this._actuated = false;
+      s.depth = this.y * o.maxDepth;
 
-      // Springs: depth is soft & slightly bouncy; tilt & light track quickly.
-      [s.depth, v.depth] = spring(s.depth, v.depth, target, 220, 0.72, dt);
+      // ---- Tilt / light track the finger quickly --------------------------
       [s.tiltX, v.tiltX] = spring(s.tiltX, v.tiltX, this.t.tiltX, 180, 0.7, dt);
       [s.tiltY, v.tiltY] = spring(s.tiltY, v.tiltY, this.t.tiltY, 180, 0.7, dt);
       [s.glow, v.glow] = spring(s.glow, v.glow, this.t.glow, 160, 0.8, dt);
@@ -410,6 +479,10 @@
       el.style.setProperty('--rt-hly', s.hly.toFixed(2) + '%');
       // Softer/broader contact → a larger, more diffuse specular highlight.
       el.style.setProperty('--rt-hl-size', (60 + s.area * 90).toFixed(1) + '%');
+      // Normalized key travel (0..1) and how firmly it's into the cushioned
+      // bottom-out — CSS uses these for the matte "give" and the firm floor.
+      el.style.setProperty('--rt-press', clamp(this.y, 0, 1).toFixed(3));
+      el.style.setProperty('--rt-cushion', clamp((this.y - 0.55) / 0.35, 0, 1).toFixed(3));
     }
 
     destroy() {
@@ -430,16 +503,25 @@
 
   /* Read per-element options from data-rt-* attributes so frameworks and
    * plain markup can configure a button without writing any JavaScript:
-   *   <button data-realtouch data-rt-sound data-rt-max-depth="20"> */
+   *   <button data-realtouch data-rt-sound data-rt-max-depth="20">
+   * Numeric attributes only take effect when they parse to a finite number,
+   * so a value-less attribute (e.g. bare `data-rt-give`) or a typo falls back
+   * to the default instead of poisoning the model with NaN. */
   function optionsFromDataset(el) {
     const d = el.dataset || {};
     const o = {};
     if ('rtSound' in d) o.sound = BOOL(d.rtSound);
     if ('rtHaptics' in d) o.haptics = BOOL(d.rtHaptics);
-    if ('rtMaxDepth' in d) o.maxDepth = parseFloat(d.rtMaxDepth);
-    if ('rtMaxTilt' in d) o.maxTilt = parseFloat(d.rtMaxTilt);
-    if ('rtHoldGive' in d) o.holdGive = parseFloat(d.rtHoldGive);
-    if ('rtHoldTime' in d) o.holdTime = parseFloat(d.rtHoldTime);
+    const num = (attr, key) => {
+      if (!(attr in d)) return;
+      const n = parseFloat(d[attr]);
+      if (Number.isFinite(n)) o[key] = n;
+    };
+    num('rtMaxDepth', 'maxDepth');
+    num('rtMaxTilt', 'maxTilt');
+    num('rtHoldGive', 'holdGive');
+    num('rtHoldTime', 'holdTime');
+    num('rtGive', 'give');
     return o;
   }
 

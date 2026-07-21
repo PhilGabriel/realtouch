@@ -26,6 +26,8 @@ export interface Props {
   sound?: boolean;
   /** enable haptics on supported devices (on by default) */
   haptics?: boolean;
+  /** tactile "give" strength (0 = linear, 1 = full rubber dome) */
+  give?: number;
   /** extra engine options */
   maxDepth?: number;
   maxTilt?: number;
@@ -43,6 +45,7 @@ const {
   radius,
   sound = false,
   haptics = true,
+  give,
   maxDepth,
   maxTilt,
   holdGive,
@@ -60,6 +63,7 @@ if (radius != null) styleVars.push(`--rt-radius:${radius}`);
 const data: Record<string, string> = { 'data-realtouch': '' };
 if (sound) data['data-rt-sound'] = 'true';
 if (!haptics) data['data-rt-haptics'] = 'false';
+if (give != null) data['data-rt-give'] = String(give);
 if (maxDepth != null) data['data-rt-max-depth'] = String(maxDepth);
 if (maxTilt != null) data['data-rt-max-tilt'] = String(maxTilt);
 if (holdGive != null) data['data-rt-hold-give'] = String(holdGive);

@@ -20,6 +20,7 @@ export default function RealTouchButton({
   radius,
   sound = false,
   haptics = true,
+  give,
   maxDepth,
   maxTilt,
   holdGive,
@@ -46,6 +47,7 @@ export default function RealTouchButton({
     const inst = new window.RealTouch.Button(el, {
       sound,
       haptics,
+      ...(give != null && { give }),
       ...(maxDepth != null && { maxDepth }),
       ...(maxTilt != null && { maxTilt }),
       ...(holdGive != null && { holdGive }),
@@ -70,7 +72,7 @@ export default function RealTouchButton({
       el.removeEventListener('realtouch:cancel', onC);
       inst.destroy();
     };
-  }, [sound, haptics, maxDepth, maxTilt, holdGive, holdTime]);
+  }, [sound, haptics, give, maxDepth, maxTilt, holdGive, holdTime]);
 
   const cssVars = {
     ...(hue != null && { '--rt-hue-1': String(hue) }),
