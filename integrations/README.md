@@ -10,9 +10,10 @@ adapters wire that up idiomatically for the tools you already use.
 ## Core building blocks used by every adapter
 
 - **`data-rt-*` attributes** configure a button with zero JavaScript:
-  `data-rt-sound`, `data-rt-haptics="false"`, `data-rt-give`,
-  `data-rt-max-depth`, `data-rt-max-tilt`, `data-rt-hold-give`,
-  `data-rt-hold-time`.
+  `data-rt-sound`, `data-rt-haptics="false"`, `data-rt-give="0.7"` (numeric
+  `0`–`1`), `data-rt-max-depth`, `data-rt-max-tilt`, `data-rt-hold-give`,
+  `data-rt-hold-time`. Numeric attributes need an explicit value; a value-less
+  or invalid one is ignored and the default applies.
 - **`RealTouch.auto(root?)`** enhances every `[data-realtouch]` under `root`
   (default `document`) that isn't enhanced yet. Idempotent.
 - **`<script src="js/realtouch.js" data-auto>`** runs `auto()` for you on load.

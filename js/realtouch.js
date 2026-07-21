@@ -426,7 +426,9 @@
         const eased = 1 - Math.pow(1 - holdT, 3);
         drive = this.pressure + eased * o.holdGive;
       }
-      const give = clamp(o.give, 0, 1);
+      // Guard against a non-finite give (e.g. NaN slipped in via options) so a
+      // bad value can never propagate into the integrator and break rendering.
+      const give = clamp(Number.isFinite(o.give) ? o.give : DEFAULTS.give, 0, 1);
       const Fpush = DOME.PUSH * drive;
       // Integrate the mass-on-nonlinear-spring in fixed ~1ms substeps, so the
       // stiff bottom-out stays stable no matter the frame rate.
@@ -501,17 +503,25 @@
 
   /* Read per-element options from data-rt-* attributes so frameworks and
    * plain markup can configure a button without writing any JavaScript:
-   *   <button data-realtouch data-rt-sound data-rt-max-depth="20"> */
+   *   <button data-realtouch data-rt-sound data-rt-max-depth="20">
+   * Numeric attributes only take effect when they parse to a finite number,
+   * so a value-less attribute (e.g. bare `data-rt-give`) or a typo falls back
+   * to the default instead of poisoning the model with NaN. */
   function optionsFromDataset(el) {
     const d = el.dataset || {};
     const o = {};
     if ('rtSound' in d) o.sound = BOOL(d.rtSound);
     if ('rtHaptics' in d) o.haptics = BOOL(d.rtHaptics);
-    if ('rtMaxDepth' in d) o.maxDepth = parseFloat(d.rtMaxDepth);
-    if ('rtMaxTilt' in d) o.maxTilt = parseFloat(d.rtMaxTilt);
-    if ('rtHoldGive' in d) o.holdGive = parseFloat(d.rtHoldGive);
-    if ('rtHoldTime' in d) o.holdTime = parseFloat(d.rtHoldTime);
-    if ('rtGive' in d) o.give = parseFloat(d.rtGive);
+    const num = (attr, key) => {
+      if (!(attr in d)) return;
+      const n = parseFloat(d[attr]);
+      if (Number.isFinite(n)) o[key] = n;
+    };
+    num('rtMaxDepth', 'maxDepth');
+    num('rtMaxTilt', 'maxTilt');
+    num('rtHoldGive', 'holdGive');
+    num('rtHoldTime', 'holdTime');
+    num('rtGive', 'give');
     return o;
   }
 

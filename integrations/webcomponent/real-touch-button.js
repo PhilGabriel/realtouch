@@ -19,6 +19,7 @@
  *   radius          border-radius (any CSS length, e.g. "100px")
  *   sound           presence enables the soft contact sound (off by default)
  *   haptics         "false" disables vibration (on by default)
+ *   give            tactile "give" strength (0 = linear, 1 = full rubber dome)
  *   max-depth, max-tilt, hold-give, hold-time   forwarded to the engine
  *
  * Events: re-dispatches realtouch:press / release / activate / cancel, and
