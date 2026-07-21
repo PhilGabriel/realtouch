@@ -1,0 +1,104 @@
+---
+/**
+ * RealTouchButton.astro — RealTouch as a first-class Astro component.
+ *
+ * Copy the repo's `css/` and `js/` next to this file (or adjust the import
+ * paths / <script> src below to wherever you vendored them), then:
+ *
+ *   ---
+ *   import RealTouchButton from '../integrations/astro/RealTouchButton.astro';
+ *   ---
+ *   <RealTouchButton hue={160} hue2={190} onactivate="addToCart()">
+ *     Add to cart
+ *   </RealTouchButton>
+ *
+ * The engine is shipped once for the whole page via a hoisted <script>, and
+ * every instance is initialised through the idempotent RealTouch.auto().
+ */
+export interface Props {
+  /** highlight-side hue (CSS hue, 0–360) */
+  hue?: number | string;
+  /** shadow-side hue (CSS hue, 0–360) */
+  hue2?: number | string;
+  /** border-radius, any CSS length (e.g. "100px") */
+  radius?: string;
+  /** enable the soft contact sound (off by default) */
+  sound?: boolean;
+  /** enable haptics on supported devices (on by default) */
+  haptics?: boolean;
+  /** extra engine options */
+  maxDepth?: number;
+  maxTilt?: number;
+  holdGive?: number;
+  holdTime?: number;
+  /** extra classes, e.g. a theme preset */
+  class?: string;
+  /** inline `onactivate` handler string, called on a deliberate press */
+  onactivate?: string;
+}
+
+const {
+  hue,
+  hue2,
+  radius,
+  sound = false,
+  haptics = true,
+  maxDepth,
+  maxTilt,
+  holdGive,
+  holdTime,
+  class: className = '',
+  onactivate,
+} = Astro.props;
+
+const styleVars: string[] = [];
+if (hue != null) styleVars.push(`--rt-hue-1:${hue}`);
+if (hue2 != null) styleVars.push(`--rt-hue-2:${hue2}`);
+if (radius != null) styleVars.push(`--rt-radius:${radius}`);
+
+// Only emit non-default data-* attributes so markup stays clean.
+const data: Record<string, string> = { 'data-realtouch': '' };
+if (sound) data['data-rt-sound'] = 'true';
+if (!haptics) data['data-rt-haptics'] = 'false';
+if (maxDepth != null) data['data-rt-max-depth'] = String(maxDepth);
+if (maxTilt != null) data['data-rt-max-tilt'] = String(maxTilt);
+if (holdGive != null) data['data-rt-hold-give'] = String(holdGive);
+if (holdTime != null) data['data-rt-hold-time'] = String(holdTime);
+---
+
+<button
+  type="button"
+  class:list={['realtouch', className]}
+  style={styleVars.join(';')}
+  data-onactivate={onactivate}
+  {...data}
+>
+  <slot />
+</button>
+
+<style is:global>
+  @import '../../css/realtouch.css';
+</style>
+
+<script>
+  import '../../js/realtouch.js';
+
+  const boot = () => {
+    // Idempotent — safe to call once per island / navigation.
+    (window as any).RealTouch?.auto();
+    document.querySelectorAll<HTMLElement>('.realtouch[data-onactivate]').forEach((el) => {
+      if ((el as any)._rtWired) return;
+      (el as any)._rtWired = true;
+      const code = el.getAttribute('data-onactivate');
+      if (code) el.addEventListener('realtouch:activate', () => new Function(code).call(el));
+    });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+  // Re-run after Astro view transitions / client navigations.
+  document.addEventListener('astro:page-load', boot);
+</script>
