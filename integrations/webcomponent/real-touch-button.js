@@ -27,7 +27,7 @@
 (function () {
   'use strict';
 
-  const NUM = ['max-depth', 'max-tilt', 'hold-give', 'hold-time'];
+  const NUM = ['max-depth', 'max-tilt', 'hold-give', 'hold-time', 'give'];
   const camel = (s) => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 
   class RealTouchButtonElement extends HTMLElement {

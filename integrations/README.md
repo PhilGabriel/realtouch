@@ -10,8 +10,9 @@ adapters wire that up idiomatically for the tools you already use.
 ## Core building blocks used by every adapter
 
 - **`data-rt-*` attributes** configure a button with zero JavaScript:
-  `data-rt-sound`, `data-rt-haptics="false"`, `data-rt-max-depth`,
-  `data-rt-max-tilt`, `data-rt-hold-give`, `data-rt-hold-time`.
+  `data-rt-sound`, `data-rt-haptics="false"`, `data-rt-give`,
+  `data-rt-max-depth`, `data-rt-max-tilt`, `data-rt-hold-give`,
+  `data-rt-hold-time`.
 - **`RealTouch.auto(root?)`** enhances every `[data-realtouch]` under `root`
   (default `document`) that isn't enhanced yet. Idempotent.
 - **`<script src="js/realtouch.js" data-auto>`** runs `auto()` for you on load.
@@ -107,6 +108,7 @@ event `detail`. Cleans up the engine on unmount.
 | Event | Detail | When |
 | --- | --- | --- |
 | `realtouch:press` | `{ pressure, x, y, area }` | contact begins |
+| `realtouch:actuate` | `{ pressure }` | the key gives way at the actuation point |
 | `realtouch:release` | `{ held }` (`{ held, cancelled }` if aborted) | contact ends |
 | `realtouch:activate` | `{ held }` | a genuine, deliberate press completed |
 | `realtouch:cancel` | `{ held }` | interaction aborted (gesture/scroll) — no activation |

@@ -21,6 +21,8 @@
   --rt-hlx: 50%;
   --rt-hly: 50%;
   --rt-hl-size: 70%;
+  --rt-press: 0; /* normalized key travel 0..1 */
+  --rt-cushion: 0; /* firmness of the bottom-out 0..1 */
 
   --rt-radius: 22px;
   --rt-hue-1: 262;
@@ -73,9 +75,16 @@
     /* Inner rim light + shadow give the face its soft-plastic curvature.   */
     inset 0 1.5px 1px hsla(0, 0%, 100%, 0.55),
     inset 0 calc(-3px - var(--rt-depth) * 0.4) calc(6px + var(--rt-depth) * 0.5)
-      hsla(var(--rt-hue-2), 70%, 22%, calc(0.35 + var(--rt-glow) * 0.25));
+      hsla(var(--rt-hue-2), 70%, 22%, calc(0.35 + var(--rt-glow) * 0.25)),
+    /* Cushioned bottom-out: as the key hits the floor the inner shadow firms
+       up all around — the soft, springy resistance of a rubber dome.        */
+    inset 0 0 calc(4px + var(--rt-cushion) * 10px)
+      hsla(var(--rt-hue-2), 75%, 18%, calc(var(--rt-cushion) * 0.5));
 
-  transition: filter 0.18s ease;
+  /* Rubber is matte and darkens a touch as it compresses. */
+  filter: brightness(calc(1 - var(--rt-press) * 0.06))
+    saturate(calc(1 + var(--rt-press) * 0.12));
+  transition: filter 0.05s linear;
   will-change: transform, box-shadow, background;
 }
 
@@ -86,9 +95,8 @@
     0 18px 34px hsla(var(--rt-hue-2), 60%, 30%, 0.42);
 }
 
-.realtouch.is-pressed {
-  filter: saturate(1.06) brightness(0.98);
-}
+/* The pressed brightness/saturation is driven continuously by --rt-press
+   (see the .realtouch filter above), so it tracks the actual key travel. */
 
 .realtouch__label {
   position: relative;
